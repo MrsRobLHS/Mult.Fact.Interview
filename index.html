@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multiplication Fluency Quiz</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    .quiz-box { border: 1px solid #ccc; padding: 20px; border-radius: 5px; }
+    #feedback { margin-top: 10px; font-weight: bold; }
+    button { margin-top: 10px; padding: 8px 16px; }
+    ul { margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <div class="quiz-box">
+    <h1>Multiplication Fluency Quiz</h1>
+
+    <div id="name-section">
+      <p><strong>Enter Your Name:</strong></p>
+      <input type="text" id="studentName" placeholder="Full Name" />
+      <br /><br />
+      <button onclick="startQuiz()">Start Quiz</button>
+    </div>
+
+    <div id="quiz-section" style="display:none;">
+      <div id="score"></div>
+      <div id="question" style="font-size: 1.3em; margin-top: 20px;"></div>
+      <input type="number" id="answer" placeholder="Your answer" autocomplete="off" />
+      <br />
+      <button onclick="submitAnswer()">Submit</button>
+      <div id="feedback"></div>
+      <div class="summary" id="summary"></div>
+    </div>
+  </div>
+
+<script>
+  const facts = [];
+  for (let i = 1; i <= 9; i++) {
+    for (let j = i; j <= 9; j++) {
+      facts.push([i, j]);
+    }
+  }
+
+  let currentFactIndex = 0;
+  let startTime = 0;
+  const results = [];
+  let studentName = '';
+  let quizStarted = false;
+
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  shuffle(facts);
+
+  function startQuiz() {
+    const input = document.getElementById('studentName').value.trim();
+    if (!input) {
+      alert("Please enter your name.");
+      return;
+    }
+    studentName = input;
+    document.getElementById('name-section').style.display = 'none';
+    document.getElementById('quiz-section').style.display = 'block';
+    currentFactIndex = 0;
+    results.length = 0;
+    quizStarted = true;
+    nextQuestion();
+  }
+
+  function nextQuestion() {
+    if (currentFactIndex >= facts.length) {
+      showSummary();
+      return;
+    }
+    const [a, b] = facts[currentFactIndex];
+    document.getElementById('question').innerText = `What is ${a} × ${b}?`;
+    document.getElementById('answer').value = '';
+    document.getElementById('answer').focus();
+    document.getElementById('feedback').innerText = '';
+    document.getElementById('score').innerText = `Question ${currentFactIndex + 1} of ${facts.length}`;
+    startTime = Date.now();
+  }
+
+  function submitAnswer() {
+    if (!quizStarted) return;
+
+    const answerInput = document.getElementById('answer').value;
+    if (answerInput === '') {
+      alert("Please enter your answer.");
+      return;
+    }
+    const userAnswer = parseInt(answerInput);
+    const [a, b] = facts[currentFactIndex];
+    const correctAnswer = a * b;
+    const endTime = Date.now();
+    const timeTaken = (endTime - startTime) / 1000;
+
+    let category = '';
+    if (userAnswer === correctAnswer) {
+      if (timeTaken <= 3) category = 'Automatic';
+      else if (timeTaken <= 5) category = 'Fluent';
+      else category = 'Non Fluent';
+      document.getElementById('feedback').innerText = `✅ Correct! (${timeTaken.toFixed(2)}s) - ${category}`;
+      document.getElementById('feedback').style.color = 'green';
+    } else {
+      category = 'Incorrect';
+      document.getElementById('feedback').innerText = `❌ Incorrect. Answer was ${correctAnswer}. (${timeTaken.toFixed(2)}s)`;
+      document.getElementById('feedback').style.color = 'red';
+    }
+
+    results.push({ a, b, userAnswer, correctAnswer, time: timeTaken, category });
+    currentFactIndex++;
+    setTimeout(nextQuestion, 1500);
+  }
+
+  function groupByCategory(results) {
+    const groups = {
+      'Automatic': [],
+      'Fluent': [],
+      'Non Fluent': [],
+      'Incorrect': []
+    };
+
+    results.forEach(r => {
+      groups[r.category].push(r);
+    });
+
+    return groups;
+  }
+
+  function showSummary() {
+    quizStarted = false;
+    const grouped = groupByCategory(results);
+
+    document.getElementById('question').innerText = '✅ Quiz Complete!';
+    document.getElementById('answer').style.display = 'none';
+    document.querySelector('button').style.display = 'none';
+    document.getElementById('score').style.display = 'none';
+
+    let summaryHTML = `<h3>Results Summary for ${studentName}</h3>`;
+    for (const category of ['Automatic', 'Fluent', 'Non Fluent', 'Incorrect']) {
+      const list = grouped[category];
+      summaryHTML += `<h4>${category} (${list.length})</h4><ul>`;
+      list.forEach(r => {
+        if (category === 'Incorrect') {
+          summaryHTML += `<li>${r.a}×${r.b}: You answered ${r.userAnswer}, correct is ${r.correctAnswer} (${r.time.toFixed(2)}s)</li>`;
+        } else {
+          summaryHTML += `<li>${r.a}×${r.b} = ${r.correctAnswer} (${r.time.toFixed(2)}s)</li>`;
+        }
+      });
+      summaryHTML += `</ul>`;
+    }
+
+    summaryHTML += `<button onclick="downloadCSV()">📁 Download CSV Report & Send to Google Sheets</button>`;
+    document.getElementById('summary').innerHTML = summaryHTML;
+  }
+
+  function downloadCSV() {
+    const grouped = groupByCategory(results);
+
+    // Create CSV content
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += `Student Name:,${studentName}\n`;
+    csvContent += "Category,Fact,User Answer,Correct Answer,Time (s)\n";
+
+    for (const category of ['Automatic', 'Fluent', 'Non Fluent', 'Incorrect']) {
+      const list = grouped[category];
+      list.forEach(r => {
+        const fact = `${r.a} x ${r.b}`;
+        csvContent += `${category},${fact},${r.userAnswer},${r.correctAnswer},${r.time.toFixed(2)}\n`;
+      });
+    }
+
+    // Trigger CSV download
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${studentName.replace(/\s+/g, "_")}_results.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Send data to Google Sheets via Web App
+    const dataToSend = {
+      name: studentName,
+      results: results
+    };
+
+    fetch("https://script.google.com/macros/s/AKfycbymgwH9A-DUUQ5wr_fpfWvmAfSzFrExybKzQ7qlw8vfGrcW7o3c-Aan-vcM5TTQWq83/exec", {
+  method: "POST",
+  body: JSON.stringify(dataToSend),
+  headers: { "Content-Type": "application/json" }
+})
+.then(response => response.text())
+.then(msg => {
+  console.log("✅ Server response:", msg);
+  alert("✅ Results sent to Google Sheets!");
+})
+.catch(error => {
+  console.error("❌ Error sending data to Google Sheets:", error);
+  alert("❌ Error sending data. See console for details.");
+});
+}
+</script>
+</body>
+</html>
+
